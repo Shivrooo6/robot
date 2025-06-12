@@ -1,0 +1,9 @@
+openai
+pyttsx3
+SpeechRecognition
+python-dotenv
+pyaudio
+# Note: Ensure that you have the necessary system dependencies installed for pyaudio.
+# For Windows, you might need to install the PyAudio wheel from https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
+# For Linux, you can install it using your package manager, e.g., `sudo apt-get install python3-pyaudio`.
+# For macOS, you can install it using Homebrew: `brew install portaudio` and then reinstall PyAudio.    pip install librosa tensorflow numpy
