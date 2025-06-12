@@ -13,7 +13,7 @@ TARGET_LANGUAGE = "hi"  # e.g. "en" = English, "hi" = Hindi, "fr" = French
 
 # === SETUP ===
 listener = sr.Recognizer()
-tts_model = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2")  # High quality human-like voice
+tts_model = TTS(model_name="tts_models/en/vctk/vits")
 translator = Translator()
 qa_pipeline = pipeline("question-answering")  # Load Hugging Face QA model once
 
@@ -25,16 +25,7 @@ def talk(text):
     except Exception:
         translated = text  # fallback
     print("Translated:", translated)
-
-    # Speak using XTTS with language and emotion
-    tts_model.tts_to_file(
-        text=translated,
-        file_path="output.wav",
-        language=TARGET_LANGUAGE,
-        emotion="happy",  # Try: "sad", "angry", "excited"
-        speed=1.0
-    )
-
+    tts_model.tts_to_file(text=translated, file_path="output.wav")
     os.system("aplay output.wav" if os.name != "nt" else "start output.wav")
 
 # === VOICE TO TEXT ===
