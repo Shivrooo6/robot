@@ -26,13 +26,17 @@ def talk(text):
         translated = text  # fallback
     print("Translated:", translated)
 
-    # Speak using XTTS with language and emotion
+    # Get list of available speakers (use first one or choose specific)
+    speaker_id = tts_model.speakers[0]  # Example: 'en_0', 'hi_0', etc.
+
+    # Speak using XTTS with speaker and emotion
     tts_model.tts_to_file(
         text=translated,
-        file_path="output.wav",
+        speaker=speaker_id,
         language=TARGET_LANGUAGE,
-        emotion="happy",  # Try: "sad", "angry", "excited"
-        speed=1.0
+        emotion="happy",  # You can try: "angry", "sad", "excited"
+        speed=1.0,
+        file_path="output.wav"
     )
 
     os.system("aplay output.wav" if os.name != "nt" else "start output.wav")

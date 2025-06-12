@@ -6,49 +6,93 @@ import pyjokes
 import webbrowser
 from googletrans import Translator
 from transformers import pipeline
-from TTS.api import TTS  # Coqui TTS for human-like voice
+from TTS.api import TTS
+import face_recognition
+import cv2
+import soundfile as sf
+import torch
+from speechbrain.pretrained import SpeakerRecognition
 
 # === SETTINGS ===
-TARGET_LANGUAGE = "hi"  # e.g. "en" = English, "hi" = Hindi, "fr" = French
+TARGET_LANGUAGE = "hi"
+AUTHORIZED_VOICE_PATH = "ownervoice.wav"
+AUTHORIZED_FACE_PATH = "ownerimage.jpg"
 
 # === SETUP ===
 listener = sr.Recognizer()
 tts_model = TTS(model_name="tts_models/en/vctk/vits")
+default_speaker = tts_model.speakers[0]
 translator = Translator()
-qa_pipeline = pipeline("question-answering")  # Load Hugging Face QA model once
+qa_pipeline = pipeline("question-answering")
+verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
 
-# === TALK (Human-like voice) ===
+# === FUNCTIONS ===
+
 def talk(text):
     print("Assistant:", text)
     try:
         translated = translator.translate(text, dest=TARGET_LANGUAGE).text
-    except Exception:
-        translated = text  # fallback
-    print("Translated:", translated)
-    tts_model.tts_to_file(text=translated, file_path="output.wav")
+    except:
+        translated = text
+    tts_model.tts_to_file(text=translated, speaker=default_speaker, file_path="output.wav")
     os.system("aplay output.wav" if os.name != "nt" else "start output.wav")
 
-# === VOICE TO TEXT ===
+def verify_face():
+    try:
+        known_img = face_recognition.load_image_file(AUTHORIZED_FACE_PATH)
+        known_encoding = face_recognition.face_encodings(known_img)[0]
+
+        cam = cv2.VideoCapture(0)
+        result, frame = cam.read()
+        cam.release()
+        cv2.destroyAllWindows()
+
+        if not result:
+            return False
+
+        unknown_encoding = face_recognition.face_encodings(frame)
+        if unknown_encoding and face_recognition.compare_faces([known_encoding], unknown_encoding[0])[0]:
+            return True
+    except:
+        pass
+    return False
+
+def verify_voice():
+    try:
+        with sr.Microphone() as source:
+            print("Listening for voice verification...")
+            listener.adjust_for_ambient_noise(source)
+            voice = listener.listen(source, timeout=5)
+            with open("temp.wav", "wb") as f:
+                f.write(voice.get_wav_data())
+        score, _ = verification.verify_files(AUTHORIZED_VOICE_PATH, "temp.wav")
+        os.remove("temp.wav")
+        return score > 0.75
+    except:
+        return False
+
 def take_command():
     try:
         with sr.Microphone() as source:
-            print("Listening...")
+            print("Waiting for hotword 'Arya'...")
             listener.adjust_for_ambient_noise(source)
-            voice = listener.listen(source, timeout=5)
+            voice = listener.listen(source, timeout=10)
             command = listener.recognize_google(voice).lower()
             print(f"You said: {command}")
             if 'arya' in command:
-                command = command.replace('arya', '').strip()
-            return command
-    except sr.WaitTimeoutError:
-        talk("No input detected.")
+                talk("Yes, how can I help you?")
+                voice = listener.listen(source, timeout=5)
+                command = listener.recognize_google(voice).lower()
+                print(f"Command: {command}")
+                return command
     except sr.UnknownValueError:
-        talk("Sorry, I did not catch that.")
+        talk("Sorry, I didn't understand.")
     except sr.RequestError:
-        talk("Could not connect to the recognition service.")
+        talk("Could not connect to recognition service.")
+    except sr.WaitTimeoutError:
+        pass
     return ""
 
-# === NLP QUESTION HANDLER ===
 def answer_from_nlp(question):
     context = (
         "India is a country in South Asia. Its capital is New Delhi. "
@@ -58,10 +102,9 @@ def answer_from_nlp(question):
     try:
         result = qa_pipeline(question=question, context=context)
         return result["answer"]
-    except Exception:
+    except:
         return "Sorry, I couldn't answer that."
 
-# === COMMAND LOGIC ===
 def run_arya():
     command = take_command()
     if not command:
@@ -82,20 +125,20 @@ def run_arya():
             talk(info)
         except:
             answer = answer_from_nlp(command)
-            if answer:
-                talk(answer)
-            else:
-                talk("I couldn't find that, searching online.")
-                webbrowser.open(f"https://www.google.com/search?q={command}")
+            talk(answer if answer else "I couldn't find that. Let me search it.")
+            webbrowser.open(f"https://www.google.com/search?q={command}")
 
     elif 'joke' in command:
-        joke = pyjokes.get_joke()
-        talk(joke)
+        talk(pyjokes.get_joke())
 
     elif 'search' in command:
         query = command.replace('search', '').strip()
         talk(f"Searching for {query}")
         webbrowser.open(f"https://www.google.com/search?q={query}")
+
+    elif 'exit' in command or 'quit' in command:
+        talk("Goodbye!")
+        exit()
 
     else:
         answer = answer_from_nlp(command)
@@ -105,10 +148,14 @@ def run_arya():
             talk("Let me search that for you.")
             webbrowser.open(f"https://www.google.com/search?q={command}")
 
-# === MAIN LOOP ===
+# === MAIN ===
 if __name__ == "__main__":
-    while True:
-        run_arya()
-        if 'exit' in take_command():
-            talk("Goodbye!")
-            break
+    talk("Starting voice assistant...")
+    if verify_face() and verify_voice():
+        talk("Welcome back, verified successfully.")
+        while True:
+            run_arya()
+    else:
+        talk("Verification failed. Access denied.")
+        exit()
+# === END OF CODE ===

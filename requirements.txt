@@ -1,7 +1,12 @@
-TTS
-SpeechRecognition
-wikipedia
-pyjokes
+speechrecognition
+googletrans==4.0.0-rc1
 transformers
-googletrans==4.0.0rc1
 torch
+pyttsx3
+pyjokes
+wikipedia
+face_recognition
+opencv-python
+soundfile
+TTS
+speechbrain
